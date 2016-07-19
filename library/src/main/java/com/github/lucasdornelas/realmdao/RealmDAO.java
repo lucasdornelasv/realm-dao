@@ -25,7 +25,7 @@ public abstract class RealmDAO<T extends RealmObject> {
         this.realm = realm;
         this.realmQuery = realm.where(getTypeClass());
     }
-    private Class<T> getTypeClass(){
+    protected Class<T> getTypeClass(){
         Class<?> klassAux =  TypeResolver.resolveRawArguments(RealmDAO.class, getClass())[0];
         Class<T> klass = null;
         try {
