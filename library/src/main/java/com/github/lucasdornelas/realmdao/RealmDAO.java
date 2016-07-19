@@ -146,9 +146,7 @@ public abstract class RealmDAO<T extends RealmObject> {
         realm.executeTransactionAsync(new Realm.Transaction() {
             @Override
             public void execute(Realm bgRealm) {
-                bgRealm.beginTransaction();
                 bgRealm.copyToRealmOrUpdate(realmObject);
-                bgRealm.commitTransaction();
             }
         }, onSuccess, onError);
     }
