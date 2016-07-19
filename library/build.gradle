@@ -1,6 +1,12 @@
 apply plugin: 'com.android.library'
 apply plugin: 'realm-android'
 
+apply plugin: 'com.github.dcendents.android-maven'
+
+group='com.github.luucasdornelas'
+artifact='realm-dao'
+version='0.0.1'
+
 android {
     compileSdkVersion 24
     buildToolsVersion "24.0.0"
@@ -24,4 +30,25 @@ dependencies {
     testCompile 'junit:junit:4.12'
 
     compile group: 'net.jodah', name: 'typetools', version: '0.4.+'
+}
+
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+task javadoc(type: Javadoc) {
+    failOnError  false
+    source = android.sourceSets.main.java.sourceFiles
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
 }
