@@ -256,17 +256,10 @@ public abstract class RealmDAO<T extends RealmObject> {
     public void deleteLast(T[] realmObjects){
         if(realmObjects != null) delete(realmObjects, realmObjects.length - 1);
     }
-
-    public void deleteFirst(OrderedRealmCollection<T> realmObjects){
-        if(realmObjects != null) realmObjects.deleteFirstFromRealm();
-    }
-    public void deleteLast(OrderedRealmCollection<T> realmObjects){
-        if(realmObjects != null) realmObjects.deleteLastFromRealm();
-    }
     public void deleteFirst(List<T> realmObjects){
         if(realmObjects != null){
             if(realmObjects instanceof OrderedRealmCollection){
-                deleteFirst((OrderedRealmCollection<T>) realmObjects);
+                ((OrderedRealmCollection<T>)realmObjects).deleteFirstFromRealm();
             }else{
                 deleteFirst((T[]) realmObjects.toArray());
             }
@@ -275,7 +268,7 @@ public abstract class RealmDAO<T extends RealmObject> {
     public void deleteLast(List<T> realmObjects){
         if(realmObjects != null){
             if(realmObjects instanceof OrderedRealmCollection){
-                deleteLast((OrderedRealmCollection<T>) realmObjects);
+                ((OrderedRealmCollection<T>)realmObjects).deleteLastFromRealm();
             }else{
                 deleteLast((T[]) realmObjects.toArray());
             }
