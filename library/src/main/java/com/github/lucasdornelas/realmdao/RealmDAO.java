@@ -3,8 +3,11 @@ package com.github.lucasdornelas.realmdao;
 import net.jodah.typetools.TypeResolver;
 
 import java.util.Date;
+import java.util.List;
 
+import io.realm.OrderedRealmCollection;
 import io.realm.Realm;
+import io.realm.RealmAsyncTask;
 import io.realm.RealmObject;
 import io.realm.RealmObjectSchema;
 import io.realm.RealmQuery;
@@ -13,6 +16,7 @@ import io.realm.RealmResults;
 /**
  * Created by Windows 8 on 15/07/2016.
  */
+@SuppressWarnings("unchecked")
 public abstract class RealmDAO<T extends RealmObject> {
     protected Realm realm;
     protected RealmQuery<T> realmQuery;
@@ -44,7 +48,7 @@ public abstract class RealmDAO<T extends RealmObject> {
         return objectSchema.hasPrimaryKey() ? objectSchema.getPrimaryKey() : "";
     }
 
-    private RealmQuery<T> getCustomQuery(RealmQuery<T> realmQuery, CallbackDAO.CustomQuery<T> customQuery){
+    private RealmQuery<T> getCustomQuery(RealmQuery<T> realmQuery, Callback.CustomQuery<T> customQuery){
         RealmQuery<T> realmQueryAux = realmQuery;
         if(customQuery != null) realmQueryAux = customQuery.returnQuery(realmQuery);
         return realmQueryAux;
@@ -132,30 +136,305 @@ public abstract class RealmDAO<T extends RealmObject> {
     public T findOne(){
         return findQuery().findFirst();
     }
-    public T findOne(CallbackDAO.CustomQuery<T> customQuery){
+    public T findOne(Callback.CustomQuery<T> customQuery){
         return getCustomQuery(findQuery(), customQuery).findFirst();
     }
 
+    //Save methods
+    public T save(Callback.PreSave<T> onPreSaveFunc){
+        realm.beginTransaction();
+        T realmObject = realm.copyToRealmOrUpdate(onPreSaveFunc.onPreSave());
+        realm.commitTransaction();
+        return realmObject;
+    }
     public T save(T realmObject){
         realm.beginTransaction();
         realmObject = realm.copyToRealmOrUpdate(realmObject);
         realm.commitTransaction();
         return realmObject;
     }
-    public void saveAsync(final T realmObject, Realm.Transaction.OnSuccess onSuccess, Realm.Transaction.OnError onError){
-        realm.executeTransactionAsync(new Realm.Transaction() {
+    public T[] save(T... realmObjects){
+        realm.beginTransaction();
+        for(int i = 0; i < realmObjects.length; i++){
+            realmObjects[i] = realm.copyToRealmOrUpdate(realmObjects[i]);
+        }
+        realm.commitTransaction();
+        return realmObjects;
+    }
+    public List<T> save(List<T> realmObjects){
+        realm.beginTransaction();
+        realmObjects = realm.copyToRealmOrUpdate(realmObjects);
+        realm.commitTransaction();
+        return realmObjects;
+    }
+    public RealmAsyncTask saveAsync(final Callback.PreSave<T> onPreSaveFunc,
+                                    Realm.Transaction.OnSuccess onSuccess,
+                                    Realm.Transaction.OnError onError){
+        return realm.executeTransactionAsync(new Realm.Transaction() {
             @Override
             public void execute(Realm bgRealm) {
-                bgRealm.copyToRealmOrUpdate(realmObject);
+                bgRealm.copyToRealmOrUpdate(onPreSaveFunc.onPreSave());
             }
         }, onSuccess, onError);
     }
-    public void saveAsync(final T realmObject, Realm.Transaction.OnSuccess onSuccess) {
-        saveAsync(realmObject, onSuccess, null);
+    public RealmAsyncTask saveAsync(Callback.PreSave<T> onPreSaveFunc) {
+        return saveAsync(onPreSaveFunc, null, null);
     }
-    public void saveAsync(final T realmObject, Realm.Transaction.OnError onError) {
-        saveAsync(realmObject, null, onError);
+    public RealmAsyncTask saveAsync(Callback.PreSave<T> onPreSaveFunc, Realm.Transaction.OnSuccess onSuccess) {
+        return saveAsync(onPreSaveFunc, onSuccess, null);
+    }
+    public RealmAsyncTask saveAsync(Callback.PreSave<T> onPreSaveFunc, Realm.Transaction.OnError onError) {
+        return saveAsync(onPreSaveFunc, null, onError);
+    }
+    public RealmAsyncTask saveAsync(final T[] realmObjects, Realm.Transaction.OnSuccess onSuccess,
+                                    Realm.Transaction.OnError onError){
+        return realm.executeTransactionAsync(new Realm.Transaction() {
+            @Override
+            public void execute(Realm bgRealm) {
+                for(T realmObject : realmObjects) bgRealm.copyToRealmOrUpdate(realmObject);
+            }
+        }, onSuccess, onError);
+    }
+    public RealmAsyncTask saveAsync(final T... realmObject) {
+        return saveAsync(realmObject, null, null);
+    }
+    public RealmAsyncTask saveAsync(final T[] realmObject, Realm.Transaction.OnSuccess onSuccess) {
+        return saveAsync(realmObject, onSuccess, null);
+    }
+    public RealmAsyncTask saveAsync(final T[] realmObject, Realm.Transaction.OnError onError) {
+        return saveAsync(realmObject, null, onError);
+    }
+    public RealmAsyncTask saveAsync(final T realmObject, Realm.Transaction.OnSuccess onSuccess,
+                                    Realm.Transaction.OnError onError) {
+        return saveAsync((T[])new Object[]{realmObject}, onSuccess, onError);
+    }
+    public RealmAsyncTask saveAsync(final T realmObject, Realm.Transaction.OnSuccess onSuccess) {
+        return saveAsync(realmObject, onSuccess, null);
+    }
+    public RealmAsyncTask saveAsync(final T realmObject, Realm.Transaction.OnError onError) {
+        return saveAsync(realmObject, null, onError);
+    }
+    public RealmAsyncTask saveAsync(final List<T> realmObjects, Realm.Transaction.OnSuccess onSuccess,
+                                    Realm.Transaction.OnError onError){
+        return realm.executeTransactionAsync(new Realm.Transaction() {
+            @Override
+            public void execute(Realm bgRealm) {
+                bgRealm.copyToRealmOrUpdate(realmObjects);
+            }
+        }, onSuccess, onError);
+    }
+    public RealmAsyncTask saveAsync(final List<T> realmObject) {
+        return saveAsync(realmObject, null, null);
+    }
+    public RealmAsyncTask saveAsync(final List<T> realmObject, Realm.Transaction.OnSuccess onSuccess) {
+        return saveAsync(realmObject, onSuccess, null);
+    }
+    public RealmAsyncTask saveAsync(final List<T> realmObject, Realm.Transaction.OnError onError) {
+        return saveAsync(realmObject, null, onError);
     }
 
 
+    //Delete methods
+    public void delete(T... realmObjects){
+        if(realmObjects == null) return;
+        realm.beginTransaction();
+        for(T realmObject : realmObjects) {
+            if(realmObject != null && realmObject.isValid()) realmObject.deleteFromRealm();
+        }
+        realm.commitTransaction();
+    }
+    public void delete(T[] realmObjects, int position){
+        int length;
+        if(realmObjects == null || (length = realmObjects.length) < 1 || position >= length || position < 0){
+            return;
+        }
+        delete(realmObjects[position]);
+    }
+    public void deleteFirst(T[] realmObjects){
+        delete(realmObjects, 0);
+    }
+    public void deleteLast(T[] realmObjects){
+        if(realmObjects != null) delete(realmObjects, realmObjects.length - 1);
+    }
+
+    public void deleteFirst(OrderedRealmCollection<T> realmObjects){
+        if(realmObjects != null) realmObjects.deleteFirstFromRealm();
+    }
+    public void deleteLast(OrderedRealmCollection<T> realmObjects){
+        if(realmObjects != null) realmObjects.deleteLastFromRealm();
+    }
+    public void deleteFirst(List<T> realmObjects){
+        if(realmObjects != null){
+            if(realmObjects instanceof OrderedRealmCollection){
+                deleteFirst((OrderedRealmCollection<T>) realmObjects);
+            }else{
+                deleteFirst((T[]) realmObjects.toArray());
+            }
+        }
+    }
+    public void deleteLast(List<T> realmObjects){
+        if(realmObjects != null){
+            if(realmObjects instanceof OrderedRealmCollection){
+                deleteLast((OrderedRealmCollection<T>) realmObjects);
+            }else{
+                deleteLast((T[]) realmObjects.toArray());
+            }
+        }
+    }
+    public void delete(final List<T> realmObjects){
+        if(realmObjects != null && !realmObjects.isEmpty()){
+            if(realmObjects instanceof OrderedRealmCollection){
+                final OrderedRealmCollection<T> auxList = (OrderedRealmCollection<T>) realmObjects;
+                if(!auxList.isValid()) return;
+                realm.beginTransaction();
+                auxList.deleteAllFromRealm();
+                realm.commitTransaction();
+            }else{
+                delete((T[]) realmObjects.toArray());
+            }
+        }
+    }
+
+    public void delete(final OrderedRealmCollection<T> realmObjects, int position){
+        if(realmObjects != null && !realmObjects.isEmpty()){
+            if(!realmObjects.isValid()) return;
+            realm.beginTransaction();
+            realmObjects.deleteFromRealm(position);
+            realm.commitTransaction();
+        }
+    }
+    public void delete(List<T> realmObjects, int position){
+        if(realmObjects != null && !realmObjects.isEmpty()){
+            if(realmObjects instanceof OrderedRealmCollection){
+                delete((OrderedRealmCollection<T>) realmObjects, position);
+            }else{
+                delete((T[]) realmObjects.toArray(), position);
+            }
+        }
+    }
+
+
+    public RealmAsyncTask deleteAsync(final T[] realmObjects, Realm.Transaction.OnSuccess onSuccess,
+                            Realm.Transaction.OnError onError){
+        return realm.executeTransactionAsync(new Realm.Transaction() {
+            @Override
+            public void execute(Realm bgRealm) {
+                for(T realmObject : realmObjects) realmObject.deleteFromRealm();
+            }
+        }, onSuccess, onError);
+    }
+    public RealmAsyncTask deleteAsync(final T realmObject, Realm.Transaction.OnSuccess onSuccess,
+                            Realm.Transaction.OnError onError){
+        return deleteAsync((T[])new Object[]{realmObject}, onSuccess, onError);
+    }
+    public RealmAsyncTask deleteAsync(final T... realmObject) {
+        return deleteAsync(realmObject, null, null);
+    }
+    public RealmAsyncTask deleteAsync(final T[] realmObject, Realm.Transaction.OnSuccess onSuccess) {
+        return deleteAsync(realmObject, onSuccess, null);
+    }
+    public RealmAsyncTask deleteAsync(final T[] realmObject, Realm.Transaction.OnError onError) {
+        return deleteAsync(realmObject, null, onError);
+    }
+    public RealmAsyncTask deleteAsync(final T realmObject, Realm.Transaction.OnSuccess onSuccess) {
+        return deleteAsync(realmObject, onSuccess, null);
+    }
+    public RealmAsyncTask deleteAsync(final T realmObject, Realm.Transaction.OnError onError) {
+        return deleteAsync(realmObject, null, onError);
+    }
+
+    public RealmAsyncTask deleteAsync(final List<T> realmObjects, Realm.Transaction.OnSuccess onSuccess,
+                            Realm.Transaction.OnError onError) {
+        RealmAsyncTask realmAsyncTask = null;
+        if(realmObjects != null && !realmObjects.isEmpty()){
+            if(realmObjects instanceof OrderedRealmCollection){
+                final OrderedRealmCollection<T> auxList = (OrderedRealmCollection<T>) realmObjects;
+                if(!auxList.isValid()) return null;
+                realmAsyncTask = realm.executeTransactionAsync(new Realm.Transaction() {
+                    @Override
+                    public void execute(Realm bgRealm) {
+                        auxList.deleteAllFromRealm();
+                    }
+                }, onSuccess, onError);
+            }else{
+                realmAsyncTask = deleteAsync((T[])realmObjects.toArray(), onSuccess, onError);
+            }
+        }
+        return realmAsyncTask;
+    }
+    public RealmAsyncTask deleteAsync(final List<T> realmObjects) {
+        return deleteAsync(realmObjects, null, null);
+    }
+    public RealmAsyncTask deleteAsync(final List<T> realmObjects, Realm.Transaction.OnSuccess onSuccess) {
+        return deleteAsync(realmObjects, onSuccess, null);
+    }
+    public RealmAsyncTask deleteAsync(final List<T> realmObjects, Realm.Transaction.OnError onError) {
+        return deleteAsync(realmObjects, null, onError);
+    }
+
+    public RealmAsyncTask deleteAsync(final T[] realmObjects, int position,
+                                      Realm.Transaction.OnSuccess onSuccess,
+                                      Realm.Transaction.OnError onError){
+        int length;
+        if(realmObjects == null || (length = realmObjects.length) < 1 || position >= length || position < 0){
+            return null;
+        }
+        return deleteAsync(realmObjects[position], onSuccess, onError);
+    }
+    public RealmAsyncTask deleteAsync(final T[] realmObjects, int position){
+        return deleteAsync(realmObjects, position, null, null);
+    }
+    public RealmAsyncTask deleteAsync(final T[] realmObjects, int position,
+                                      Realm.Transaction.OnSuccess onSuccess){
+        return deleteAsync(realmObjects, position, onSuccess, null);
+    }
+    public RealmAsyncTask deleteAsync(final T[] realmObjects, int position,
+                                      Realm.Transaction.OnError onError){
+        return deleteAsync(realmObjects, position, null, onError);
+    }
+    public RealmAsyncTask deleteAsync(final OrderedRealmCollection<T> realmObjects, final int position,
+                                      Realm.Transaction.OnSuccess onSuccess,
+                                      Realm.Transaction.OnError onError) {
+        if(realmObjects == null || !realmObjects.isValid() || !realmObjects.isEmpty()) return null;
+        return realm.executeTransactionAsync(new Realm.Transaction() {
+            @Override
+            public void execute(Realm bgRealm) {
+                realmObjects.deleteFromRealm(position);
+            }
+        }, onSuccess, onError);
+    }
+    public RealmAsyncTask deleteAsync(final OrderedRealmCollection<T> realmObjects, final int position) {
+        return deleteAsync(realmObjects, position, null, null);
+    }
+    public RealmAsyncTask deleteAsync(final OrderedRealmCollection<T> realmObjects, final int position,
+                                      Realm.Transaction.OnSuccess onSuccess) {
+        return deleteAsync(realmObjects, position, onSuccess, null);
+    }
+    public RealmAsyncTask deleteAsync(final OrderedRealmCollection<T> realmObjects, final int position,
+                                      Realm.Transaction.OnError onError) {
+        return deleteAsync(realmObjects, position, null, onError);
+    }
+
+    public RealmAsyncTask deleteAsync(final List<T> realmObjects, int position,
+                                      Realm.Transaction.OnSuccess onSuccess,
+                                      Realm.Transaction.OnError onError) {
+        RealmAsyncTask realmAsyncTask = null;
+        if(realmObjects != null && !realmObjects.isEmpty()){
+            if(realmObjects instanceof OrderedRealmCollection){
+                realmAsyncTask = deleteAsync((OrderedRealmCollection<T>) realmObjects, position, onSuccess, onError);
+            }else{
+                realmAsyncTask = deleteAsync((T[])realmObjects.toArray(), position, onSuccess, onError);
+            }
+        }
+        return realmAsyncTask;
+    }
+    public RealmAsyncTask deleteAsync(final List<T> realmObjects, int position) {
+        return deleteAsync(realmObjects, position, null, null);
+    }
+    public RealmAsyncTask deleteAsync(final List<T> realmObjects, int position, Realm.Transaction.OnSuccess onSuccess) {
+        return deleteAsync(realmObjects, position, onSuccess, null);
+    }
+    public RealmAsyncTask deleteAsync(final List<T> realmObjects, int position, Realm.Transaction.OnError onError) {
+        return deleteAsync(realmObjects, position, null, onError);
+    }
 }
